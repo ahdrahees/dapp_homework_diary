@@ -1,19 +1,7 @@
-import { dapp_homework_diary_backend } from "../../declarations/dapp_homework_diary_backend";
-
-document.querySelector("form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const button = e.target.querySelector("button");
-
-  const name = document.getElementById("name").value.toString();
-
-  button.setAttribute("disabled", true);
-
-  // Interact with foo actor, calling the greet method
-  const greeting = await dapp_homework_diary_backend.greet(name);
-
-  button.removeAttribute("disabled");
-
-  document.getElementById("greeting").innerText = greeting;
-
-  return false;
-});
+document
+  .querySelector("form")
+  .addEventListener("submit", async function (event) {
+    event.preventDefault();
+    const dateinput = document.getElementById("date").value;
+    console.log(typeof dateinput, dateinput);
+  });
