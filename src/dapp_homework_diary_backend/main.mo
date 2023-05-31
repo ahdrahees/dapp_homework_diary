@@ -6,176 +6,282 @@ import Array "mo:base/Array";
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
 import Debug "mo:base/Debug";
-
-
+import Nat "mo:base/Nat";
+import Iter "mo:base/Iter";
+import TrieMap "mo:base/TrieMap";
 
 actor class Homework() {
 
-public type Time = Time.Time;
+  public type Time = Time.Time;
 
   public type Homework = {
-    title : Text ;
+    title : Text;
     description : Text;
     dueDate : Time;
     completed : Bool;
 
   };
 
-  let userLoginMap = HashMap.HashMap<Principal,Buffer.Buffer<Homework>>(0,Principal.equal,Principal.hash);
-  // homeworkDiary
-  // let homeworkDiary = Buffer.Buffer<Homework>(0);
+  type HWDiaryBuffer = Buffer.Buffer<Homework>;
+  // Buffer.Buffer<Homework> is buffer data structure of type Homework,
+  // Buffer.Buffer<Homework>(0) is buffer creating with from Homework type
+
+  // All types should be stable when declaring a stable variable . So we have to convert each and every non stable types(Hashmap, Buffer ..etc) into stable types (Array, Nat, Text ...etc)
+
+  stable var dataOfUsers : [(Principal, [Homework])] = [];
+  let userLoginMap = HashMap.HashMap<Principal, HWDiaryBuffer>(0, Principal.equal, Principal.hash);
+
+  // var dataArray : [(Principal, HWDiaryBuffer)] = [];
+  // let userLoginMap = HashMap.fromIter<Principal, HWDiaryBuffer>(dataArray.vals(), dataArray.size(), Principal.equal, Principal.hash);
+
+  // let userLoginMap = TrieMap.fromEntries<Principal, HWDiaryBuffer>(dataArray.vals(), Principal.equal, Principal.hash);
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////Public Functions///////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Add a new homework task
-  public shared ({caller}) func addHomework(_homeWork : Homework, userPrincipal: Principal) : async Nat {
-
+  public shared ({ caller }) func addHomework(_homeWork : Homework) : async Nat {
     switch (userLoginMap.get(caller)) {
       case (null) {
-        let homeworkDiary = Buffer.Buffer<Homework>(0);
+        let homeworkDiary : HWDiaryBuffer = Buffer.Buffer<Homework>(0);
         homeworkDiary.add(_homeWork);
-        userLoginMap.put(caller,homeworkDiary);
+        userLoginMap.put(caller, homeworkDiary);
         return homeworkDiary.size() -1;
       };
       case (_) {
-        let homeworkDiary : Buffer.Buffer<Homework> = switch(userLoginMap.get(caller)){ case (?hwDiary) {hwDiary}; case (null) { Debug.trap("Value was null")}};
+        let homeworkDiary : HWDiaryBuffer = switch (userLoginMap.get(caller)) {
+          case (?hwDiary) { hwDiary };
+          case (null) { Debug.trap("Value was null") };
+        };
         homeworkDiary.add(_homeWork);
-        userLoginMap.put(caller,homeworkDiary);
+        userLoginMap.put(caller, homeworkDiary);
         return homeworkDiary.size() -1;
       };
     };
 
-    
   };
 
   // Get a specific homework task by id
-  // query func getHomework(user : Principal, homeworkId : Nat) : async ?Homework {
-
-  //   let homeworkDiary : Buffer.Buffer<Homework> = switch(userLoginMap.get(user)){ case (?hwDiary) {hwDiary}; case (null) { Debug.trap("Value was null")}};
-  //   let homework = homeworkDiary.getOpt(homeworkId);
-  //     // let homework = homeworkDiary.get(homeworkId); not optional
-  //   return homework;
-  // };
-
-  // public shared ({caller}) func getAHomework((homeworkId : Nat )) : async Result.Result<Homework, Text> {
-  //   switch (userLoginMap.get(caller)) {
-  //     case (null) {
-  //       return #err("You have no Homework created yet");
-  //     };
-  //     case (homeworkDiary) {
-  //       // let _homework = getHomework(caller, homeworkId);
-  //       switch(getHomework(caller, homeworkId)){
-  //         case (?homework) {
-  //           return #ok(homework);
-  //         };
-  //         case (null)  {
-  //           return #err("Invalid Homework Id");
-  //         };
-  //       };
-        
-  //     };
-  //   };
-
-  // };
-
-  public shared ({caller}) func getA2Homework(homeworkId : Nat ) : async Result.Result<Homework, Text> {
-      switch (userLoginMap.get(caller)) {
-        case (null) {
-          return #err("You have no Homework created yet");
-        };
-        case (homeworkDiary) {
-          
-          let  homework = switch(homeworkDiary.getOpt(homeworkId)){ case (?hw) {hw}; case (null) { return #err("Invalid Homework Id"); }};
-          
-          return #ok(homework);
+  public shared ({ caller }) func getHomework(homeworkId : Nat) : async Result.Result<Homework, Text> {
+    switch (userLoginMap.get(caller)) {
+      case (null) {
+        return #err("You have no Homework created yet");
+      };
+      case (?homeworkDiary) {
+        switch (homeworkDiary.getOpt(homeworkId)) {
+          case (?homework) { return #ok(homework) };
+          case (null) { return #err("Invalid Homework Id") };
         };
       };
     };
+  };
 
-// Update a homework task's title, description, and/or due date
-//   public shared func updateHomework(homeworkId : Nat, _homeWork : Homework ) : async Result.Result<(),Text> {
+  // Update a homework task's title, description, and/or due date
+  public shared ({ caller }) func updateHomework(homeworkId : Nat, _homeWork : Homework) : async Result.Result<(), Text> {
+    switch (userLoginMap.get(caller)) {
+      case (null) {
+        return #err("You have no Homework created yet");
+      };
+      case (?homeworkDiary) {
+        switch (homeworkDiary.getOpt(homeworkId)) {
+          case (null) { return #err("Invalid Homework Id") };
+          case (_) { #ok(homeworkDiary.put(homeworkId, _homeWork)) };
+        };
+      };
+    };
+  };
 
-//     if ( homeworkDiary.getOpt(homeworkId) != null) {
-//       #ok(homeworkDiary.put(homeworkId, _homeWork))  
-//     }else {
-//       return #err("Invalid Homework Id");  
-//     };
+  // Mark a homework task as completed
+  public shared ({ caller }) func markAsCompleted(homeworkId : Nat) : async Result.Result<(), Text> {
+    switch (userLoginMap.get(caller)) {
+      case (null) {
+        return #err("You have no Homework created yet");
+      };
+      case (?homeworkDiary) {
+        switch (homeworkDiary.getOpt(homeworkId)) {
+          case (?hw) {
+            let completedHomework : Homework = {
+              title = hw.title;
+              description = hw.description;
+              dueDate = hw.dueDate;
+              completed = true;
+            };
+            #ok(homeworkDiary.put(homeworkId, completedHomework));
+          };
+          case (null) { return #err("Invalid Homework Id") };
+        };
+      };
+    };
+  };
 
-//   };
+  // Delete a homework task by id
+  public shared ({ caller }) func deleteHomework(homeworkId : Nat) : async Result.Result<(), Text> {
+    switch (userLoginMap.get(caller)) {
+      case (null) {
+        return #err("You have no Homework created yet");
+      };
+      case (?homeworkDiary) {
+        switch (homeworkDiary.getOpt(homeworkId)) {
+          case (?hw) {
+            let _deletedHomework = homeworkDiary.remove(homeworkId);
+            return #ok;
+          };
+          case (null) { return #err("Invalid Homework Id") };
+        };
+      };
+    };
+  };
 
-// // Mark a homework task as completed
-//   public shared func markAsCompleted(homeworkId : Nat) : async Result.Result<(),Text> {
+  // Get the list of all homework tasks
+  public shared query ({ caller }) func getAllHomework() : async [Homework] {
+    switch (userLoginMap.get(caller)) {
+      case (null) {
+        return [];
+        // return #err("You have no Homework created yet");
+      };
+      case (?homeworkDiary) {
+        let homeworkArray : [Homework] = Buffer.toArray(homeworkDiary);
+        return homeworkArray;
+      };
+    };
+  };
 
-//     if ( homeworkDiary.getOpt(homeworkId) != null) {
-    
-//       let _homeWork : Homework = homeworkDiary.get(homeworkId);
+  // Get the list of pending (not completed) homework tasks
+  public shared query ({ caller }) func getPendingHomework() : async [Homework] {
+    switch (userLoginMap.get(caller)) {
+      case (null) {
+        return [];
+        // return #err("You have no Homework created yet");
+      };
+      case (?homeworkDiary) {
+        let pendingHomework = Buffer.mapFilter<Homework, Homework>(
+          homeworkDiary,
+          func(hw) {
+            if (not hw.completed) {
+              ?hw;
+            } else {
+              null;
+            };
+          },
+        );
+        if (pendingHomework.size() != 0) {
+          return Buffer.toArray(pendingHomework);
+        } else {
+          return [];
+        };
+      };
+    };
+  };
 
-//       let completedHomework : Homework = {
-//           title = _homeWork.title ;
-//           description = _homeWork.description;
-//           dueDate = _homeWork.dueDate;
-//           completed = true;
-//       };
+  // Search for homework tasks based on a search terms
+  public shared query ({ caller }) func searchHomework(searchTerm : Text) : async [Homework] {
+    switch (userLoginMap.get(caller)) {
+      case (null) {
+        return [];
+        // return #err("You have no Homework created yet");
+      };
+      case (?homeworkDiary) {
+        let searchHomework = Buffer.mapFilter<Homework, Homework>(
+          homeworkDiary,
+          func(hw : Homework) {
+            if (Text.contains(hw.description, #text searchTerm) or Text.contains(hw.title, #text searchTerm)) {
+              ?hw;
+            } else {
+              null;
+            };
+          },
+        );
+        return Buffer.toArray(searchHomework);
+      };
+    };
+  };
 
-//      #ok( homeworkDiary.put(homeworkId,completedHomework))
+  // Delete user account (Note: Deleting a user account can only be done by the user himself)
+  public shared ({ caller }) func deleteUser() : async Result.Result<Bool, Text> {
+    switch (userLoginMap.get(caller)) {
+      case (null) {
+        return #err("You don't have account to delete");
+      };
+      case (_) {
+        userLoginMap.delete(caller);
+        return #ok(true);
+      };
+    };
+  };
 
-//     } else {
-//       return #err("Invalid Homework Id");  
-//     };
-//   };
+  // Get the user principal
+  public shared query ({ caller }) func user() : async Principal {
+    return caller;
+  };
 
-//   // Delete a homework task by id
-//   public shared func deleteHomework(homeworkId : Nat) : async Result.Result<(),Text>  {
-//     if ( homeworkDiary.getOpt(homeworkId) != null) {
-      
-//       let _deletedHomework = homeworkDiary.remove(homeworkId);
-//       return #ok;
-       
-//     }else {
-//       return #err("Invalid Homework Id"); 
-//     };
+  // Get number of Homeworks created by caller or user
+  public shared query ({ caller }) func getNumberOfHomeworksOfUser() : async Nat {
+    switch (userLoginMap.get(caller)) {
+      case (null) { return 0 };
+      case (?homeworkDiary) { return homeworkDiary.size() };
+    };
+  };
 
-//   };
+  // Get number of users of this Homework diary dapp
+  public shared query func getNumberOfUsers() : async Nat {
+    return userLoginMap.size();
+  };
 
-//   // Get the list of all homework tasks
-//   public shared query func getAllHomework() : async [Homework] {
-    
-//     let homeworkArray : [Homework] = Buffer.toArray(homeworkDiary);
+  // Get Totall number of Homework created by all users
+  public shared query func getTotalNumberofHomeworks() : async Nat {
+    var numberOFHomeworks = 0;
+    for (homeworkDiary in userLoginMap.vals()) {
+      numberOFHomeworks += homeworkDiary.size();
+    };
+    return numberOFHomeworks;
+  };
 
-//     return homeworkArray;
-//   };
+  // Check a Principle is the user of Homework diary or not
+  public shared query func isUserOrNot(principal : Principal) : async Bool {
+    switch (userLoginMap.get(principal)) {
+      case (null) {
+        return false;
+      };
+      case (_) {
+        return true;
+      };
+    };
+  };
 
-// // Get the list of pending (not completed) homework tasks
-//   public shared query func getPendingHomework() : async  [Homework] {
-          
-//           let pendingHomework = Buffer.mapFilter<Homework, Homework>(homeworkDiary, func (hw) {
-//             if (not hw.completed) {
-//                 ?hw;
-//              } else {
-//                    null;
-//              }
-//              });
+  // Get current Time
+  public shared query func currentTime() : async Time {
+    return Time.now();
+  };
 
-//           if (pendingHomework.size() !=0){
-//             return Buffer.toArray(pendingHomework);
-//           } else{
-//             return [];
-//           }
-//        };
- 
-//   // Search for homework tasks based on a search terms
-//   public shared query func searchHomework(searchTerm : Text) : async [Homework] {
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////Upgrade Functions///////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//       // hw is homework Type Homework. hw is considered a element in array
-//       let searchHomework = Buffer.mapFilter<Homework, Homework>(homeworkDiary, func(hw: Homework){
-        
-//         if( Text.contains(hw.description, #text searchTerm) or Text.contains(hw.title, #text searchTerm) ){
-//              ?hw
-//         } else {
-//           null;
-//         } 
-//       });
+  system func preupgrade() {
+    preupgradeDataSync();
+  };
 
-//       return Buffer.toArray(searchHomework);
+  system func postupgrade() {
+    // dataOfUsers := [];
+    postupgradeDataSync();
+  };
 
-//   };
+  func preupgradeDataSync() {
+    let dataBuffer = Buffer.Buffer<(Principal, [Homework])>(0);
+    for ((userPrincipal, homeworkDiary) in userLoginMap.entries()) {
+
+      dataBuffer.add(userPrincipal, Buffer.toArray(homeworkDiary));
+    };
+    dataOfUsers := Buffer.toArray(dataBuffer);
+  };
+
+  func postupgradeDataSync() {
+    // let bufferOfUserData = Buffer.Buffer<(Principal, HWDiaryBuffer)>(0);
+    for ((userPrincipal, homeworkDiary) in dataOfUsers.vals()) {
+      userLoginMap.put((userPrincipal, Buffer.fromArray(homeworkDiary)));
+    };
+    // dataArray := Buffer.toArray<(Principal, HWDiaryBuffer)>(bufferOfUserData);
+  };
 
 };
